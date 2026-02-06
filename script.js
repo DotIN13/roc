@@ -1,5 +1,4 @@
 // Constants
-const DATA_POINTS = 200; // Total points
 const POS_RATIO = 0.5;   // 50% positive
 const CANVAS_PADDING = 20;
 
@@ -7,6 +6,7 @@ const CANVAS_PADDING = 20;
 let state = {
     data: [], // Array of { value: float, label: 0|1 }
     separation: 2.0,
+    points: 50,
     threshold: 0.5,
     metrics: {}
 };
@@ -19,6 +19,8 @@ const els = {
     distWrapper: document.getElementById('dist-wrapper'),
     separationInput: document.getElementById('separation'),
     separationVal: document.getElementById('separation-val'),
+    pointsInput: document.getElementById('points'),
+    pointsVal: document.getElementById('points-val'),
     thresholdVal: document.getElementById('threshold-val'),
     regenBtn: document.getElementById('regen-btn'),
     // Matrix
@@ -52,6 +54,14 @@ function setupEventListeners() {
     els.separationInput.addEventListener('input', (e) => {
         state.separation = parseFloat(e.target.value);
         els.separationVal.textContent = state.separation.toFixed(1);
+        generateData();
+        update();
+    });
+
+    // Points Slider
+    els.pointsInput.addEventListener('input', (e) => {
+        state.points = parseInt(e.target.value);
+        els.pointsVal.textContent = state.points;
         generateData();
         update();
     });
@@ -90,11 +100,29 @@ function updateThresholdFromMouse(e) {
     update();
 }
 
+// Seeded PRNG (Mulberry32)
+// This ensures we get the exact same sequence of numbers for the same seed.
+function mulberry32(a) {
+    return function () {
+        var t = a += 0x6D2B79F5;
+        t = Math.imul(t ^ t >>> 15, t | 1);
+        t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+        return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    }
+}
+
+// Global RNG instance
+let rng = mulberry32(12345);
+
 // Data Generation
 function generateData() {
+    // RESET RNG so it's deterministic per generation call
+    // Using the same seed ensures 'separation' and 'points' produce the same specific dataset each time.
+    rng = mulberry32(88675123);
+
     state.data = [];
-    const numPos = Math.floor(DATA_POINTS * POS_RATIO);
-    const numNeg = DATA_POINTS - numPos;
+    const numPos = Math.floor(state.points * POS_RATIO);
+    const numNeg = state.points - numPos;
 
     // Generate Positives (Higher mean)
     // We map 0..1 range.
@@ -129,8 +157,8 @@ function generateData() {
 
 // Box-Muller transform for Gaussian noise
 function randomGaussian(mean, stdev) {
-    const u = 1 - Math.random();
-    const v = Math.random();
+    const u = 1 - rng();
+    const v = rng();
     const z = Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
     // Clip to 0-1
     let val = z * stdev + mean;
@@ -191,7 +219,6 @@ function resizeCanvases() {
     els.distCanvas.height = dRect.height;
 
     // ROC is usually fixed aspect or controlled by CSS to be square-ish
-    // But let's ensure high DPI
     const rRect = els.rocCanvas.parentElement.getBoundingClientRect();
     els.rocCanvas.width = rRect.width;
     els.rocCanvas.height = rRect.height;

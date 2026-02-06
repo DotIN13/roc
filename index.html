@@ -14,7 +14,7 @@
 <body>
     <div class="app-container">
         <header>
-            <h1>ROC Analysis Visualizer</h1>
+            <h1>ROC Visualizer</h1>
             <p class="subtitle">Interactive exploration of Classification Thresholds, Confusion Matrix, and ROC Curves.
             </p>
         </header>
@@ -23,11 +23,22 @@
             <!-- Controls Section -->
             <section class="controls">
                 <div class="control-group">
-                    <label for="separation">Class Separation</label>
+                    <div class="control-header">
+                        <label for="separation">Class Separation</label>
+                        <span class="control-value" id="separation-val">2.0</span>
+                    </div>
                     <input type="range" id="separation" min="0.5" max="4.0" step="0.1" value="2.0">
-                    <span id="separation-val">2.0</span>
                 </div>
+
                 <div class="control-group">
+                    <div class="control-header">
+                        <label for="points">Points</label>
+                        <span class="control-value" id="points-val">50</span>
+                    </div>
+                    <input type="range" id="points" min="20" max="500" step="10" value="50">
+                </div>
+
+                <div class="control-actions">
                     <button id="regen-btn" class="btn-primary">Reshuffle Data</button>
                 </div>
             </section>
