@@ -6,9 +6,11 @@ const CANVAS_PADDING = 20;
 let state = {
     data: [], // Array of { value: float, label: 0|1 }
     separation: 2.0,
-    points: 50,
+    points: 20,
     threshold: 0.5,
-    metrics: {}
+    metrics: {},
+    educationMode: false,
+    revealed: new Set() // 'tp', 'fp', 'fn', 'tn'
 };
 
 // DOM Elements
@@ -22,7 +24,7 @@ const els = {
     pointsInput: document.getElementById('points'),
     pointsVal: document.getElementById('points-val'),
     thresholdVal: document.getElementById('threshold-val'),
-    regenBtn: document.getElementById('regen-btn'),
+
     // Matrix
     tp: document.getElementById('tp-count'),
     fp: document.getElementById('fp-count'),
@@ -33,13 +35,24 @@ const els = {
     prec: document.getElementById('prec-val'),
     rec: document.getElementById('rec-val'),
     f1: document.getElementById('f1-val'),
-    fpr: document.getElementById('fpr-val')
+    fpr: document.getElementById('fpr-val'),
+
+    // Education Mode
+    educationToggle: document.getElementById('education-mode'),
+    metricsPanel: document.querySelector('.metrics-panel'),
+    matrixCells: {
+        tp: document.querySelector('.matrix-cell.tp'),
+        fp: document.querySelector('.matrix-cell.fp'),
+        fn: document.querySelector('.matrix-cell.fn'),
+        tn: document.querySelector('.matrix-cell.tn')
+    }
 };
 
 // Init
 function init() {
     setupEventListeners();
     generateData();
+    resizeCanvases();
     update();
 
     // Resize observer
@@ -55,6 +68,7 @@ function setupEventListeners() {
         state.separation = parseFloat(e.target.value);
         els.separationVal.textContent = state.separation.toFixed(1);
         generateData();
+        resetEducation();
         update();
     });
 
@@ -63,14 +77,11 @@ function setupEventListeners() {
         state.points = parseInt(e.target.value);
         els.pointsVal.textContent = state.points;
         generateData();
+        resetEducation();
         update();
     });
 
-    // Regen Button
-    els.regenBtn.addEventListener('click', () => {
-        generateData();
-        update();
-    });
+
 
     // Dragging Logic for Threshold
     let isDragging = false;
@@ -89,7 +100,36 @@ function setupEventListeners() {
     window.addEventListener('mousemove', (e) => {
         if (!isDragging) return;
         updateThresholdFromMouse(e);
+        resetEducation(); // Reset if dragging
+        update();
     });
+
+    // Education Mode Toggle
+    els.educationToggle.addEventListener('change', (e) => {
+        state.educationMode = e.target.checked;
+        if (!state.educationMode) {
+            state.revealed.clear(); // irrelevant when off, but cleaner
+        } else {
+            state.revealed.clear(); // Reset to hidden on enable
+        }
+        update();
+    });
+
+    // Matrix Cell Clicks
+    ['tp', 'fp', 'fn', 'tn'].forEach(key => {
+        els.matrixCells[key].addEventListener('click', () => {
+            if (state.educationMode && !state.revealed.has(key)) {
+                state.revealed.add(key);
+                updateUI();
+            }
+        });
+    });
+}
+
+function resetEducation() {
+    if (state.educationMode) {
+        state.revealed.clear();
+    }
 }
 
 function updateThresholdFromMouse(e) {
@@ -97,6 +137,7 @@ function updateThresholdFromMouse(e) {
     let x = e.clientX - rect.left;
     x = Math.max(0, Math.min(x, rect.width));
     state.threshold = x / rect.width;
+    resetEducation();
     update();
 }
 
@@ -211,17 +252,52 @@ function updateUI() {
     els.rec.textContent = state.metrics.recall.toFixed(2);
     els.fpr.textContent = state.metrics.fpr.toFixed(2);
     els.f1.textContent = state.metrics.f1.toFixed(2);
+
+    // Education Mode Logic
+    if (state.educationMode) {
+        // Handle Matrix Cells
+        ['tp', 'fp', 'fn', 'tn'].forEach(key => {
+            if (state.revealed.has(key)) {
+                els.matrixCells[key].classList.remove('masked');
+            } else {
+                els.matrixCells[key].classList.add('masked');
+            }
+        });
+
+        // Handle Metrics Panel
+        // Show metrics only if ALL 4 cells are revealed
+        if (state.revealed.size === 4) {
+            els.metricsPanel.classList.remove('masked');
+        } else {
+            els.metricsPanel.classList.add('masked');
+        }
+    } else {
+        // Clear all masking
+        ['tp', 'fp', 'fn', 'tn'].forEach(key => {
+            els.matrixCells[key].classList.remove('masked');
+        });
+        els.metricsPanel.classList.remove('masked');
+    }
 }
 
 function resizeCanvases() {
-    const dRect = els.distWrapper.getBoundingClientRect();
-    els.distCanvas.width = dRect.width;
-    els.distCanvas.height = dRect.height;
+    const dpr = window.devicePixelRatio || 1;
 
-    // ROC is usually fixed aspect or controlled by CSS to be square-ish
+    // Dist Canvas
+    const dRect = els.distWrapper.getBoundingClientRect();
+    els.distCanvas.width = dRect.width * dpr;
+    els.distCanvas.height = dRect.height * dpr;
+    els.distCanvas.style.width = `${dRect.width}px`;
+    els.distCanvas.style.height = `${dRect.height}px`;
+    els.distCanvas.getContext('2d').scale(dpr, dpr);
+
+    // ROC Canvas
     const rRect = els.rocCanvas.parentElement.getBoundingClientRect();
-    els.rocCanvas.width = rRect.width;
-    els.rocCanvas.height = rRect.height;
+    els.rocCanvas.width = rRect.width * dpr;
+    els.rocCanvas.height = rRect.height * dpr;
+    els.rocCanvas.style.width = `${rRect.width}px`;
+    els.rocCanvas.style.height = `${rRect.height}px`;
+    els.rocCanvas.getContext('2d').scale(dpr, dpr);
 }
 
 function draw() {
@@ -231,8 +307,9 @@ function draw() {
 
 function drawDistribution() {
     const ctx = els.distCanvas.getContext('2d');
-    const w = els.distCanvas.width;
-    const h = els.distCanvas.height;
+    const dpr = window.devicePixelRatio || 1;
+    const w = els.distCanvas.width / dpr;
+    const h = els.distCanvas.height / dpr;
 
     ctx.clearRect(0, 0, w, h);
 
@@ -317,8 +394,9 @@ function drawDistribution() {
 
 function drawROC() {
     const ctx = els.rocCanvas.getContext('2d');
-    const w = els.rocCanvas.width;
-    const h = els.rocCanvas.height;
+    const dpr = window.devicePixelRatio || 1;
+    const w = els.rocCanvas.width / dpr;
+    const h = els.rocCanvas.height / dpr;
     const padding = 40;
     const availableW = w - padding * 2;
     const availableH = h - padding * 2;

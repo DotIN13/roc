@@ -71,7 +71,7 @@ h1 {
 /* Controls */
 .controls {
     display: flex;
-    justify-content: space-between;
+    justify-content: left;
     align-items: center;
     background: #f3f4f6;
     /* Light gray from image */
@@ -80,7 +80,7 @@ h1 {
     margin-bottom: 24px;
     border: 1px solid #e5e7eb;
     flex-wrap: wrap;
-    gap: 24px;
+    gap: 3rem;
 }
 
 .control-group {
@@ -99,7 +99,6 @@ h1 {
 }
 
 .control-header label {
-    color: #6b7280;
     /* text-gray-500 */
     font-size: 0.95rem;
 }
@@ -384,6 +383,54 @@ h3 {
 .metric-val {
     font-family: 'Courier New', monospace;
     font-weight: 700;
+}
+
+/* ROC Curve */
+.canvas-wrapper-roc {
+    width: 100%;
+    aspect-ratio: 1;
+    position: relative;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: #fff;
+}
+
+/* Education Mode Styles */
+.matrix-cell {
+    transition: all 0.2s ease;
+}
+
+.matrix-cell.masked {
+    cursor: pointer;
+    /* Hide text */
+    position: relative;
+    user-select: none;
+}
+
+.matrix-cell.masked .count {
+    opacity: 0;
+}
+
+.matrix-cell.masked::after {
+    content: '?';
+    position: absolute;
+    top: 45%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 1.5rem;
+    font-weight: bold;
+}
+
+.matrix-cell.masked:hover {
+    background: #d1d5db;
+    border-color: #d1d5db;
+}
+
+/* Metrics masking */
+.metrics-panel.masked .metric-val {
+    filter: blur(5px);
+    opacity: 0.5;
+    user-select: none;
 }
 
 /* ROC Curve */
